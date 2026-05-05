@@ -6,11 +6,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <style>
     body { display: flex; flex-direction: column; align-items: center; font-family: "微軟正黑體", sans-serif; margin: 0; padding: 10px; background-color: #f4f7f6; }
-    .controls { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; width: 95%; max-width: 700px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+    .controls { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; width: 95%; max-width: 720px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
     .row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .control-group { display: flex; flex-direction: column; gap: 5px; background: #f8f9fa; padding: 10px; border-radius: 5px; flex: 1; min-width: 140px;}
     label { font-weight: bold; color: #2c3e50; font-size: 14px; }
-    select, input[type="range"] { cursor: pointer; padding: 3px; }
+    select, input[type="range"], input[type="number"], button { cursor: pointer; padding: 3px; }
+    .highlight { color: #e74c3c; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -21,41 +22,41 @@
         <label>教學情境切換：</label>
         <select id="modeSelect" onchange="changeMode()">
           <option value="0">1. 彈簧秤與視重 (B = W - W')</option>
-          <option value="1">2. 阿基米德原理 (排開液體重)</option>
+          <option value="1">2. 阿基米德原理 (溢水杯)</option>
           <option value="2">3. 物體浮沉與密度關係</option>
-          <option value="3">4. 【素養】冰塊融化與水位變化</option>
-          <option value="4">5. 【素養】貨船與吃水線</option>
+          <option value="3">4. 【素養】冰塊融化 (水位放大顯示)</option>
+          <option value="4">5. 【素養】貨船吃水線 (河水與海水)</option>
         </select>
       </div>
 
-      <div class="control-group" id="ctrlLower" style="display:none;">
+      <div id="ctrlLower" class="control-group" style="display:none;">
         <label>物體降下程度：</label>
         <input type="range" id="lowerSlider" min="0" max="100" step="1" value="0">
       </div>
 
-      <div class="control-group" id="ctrlObjD" style="display:none;">
+      <div id="ctrlObjD" class="control-group" style="display:none;">
         <label>物體密度：<span id="objDVal">0.8</span> g/cm³</label>
         <input type="range" id="objDSlider" min="0.5" max="2.0" step="0.1" value="0.8">
       </div>
 
-      <div class="control-group" id="ctrlLiqD" style="display:none;">
+      <div id="ctrlLiqD" class="control-group" style="display:none;">
         <label id="liqDLabel">液體密度：<span id="liqDVal">1.0</span> g/cm³</label>
         <input type="range" id="liqDSlider" min="0.8" max="1.5" step="0.1" value="1.0">
       </div>
 
-      <div class="control-group" id="ctrlMelt" style="display:none;">
-        <label>冰塊融化進度：<span id="meltVal">0</span>%</label>
+      <div id="ctrlMelt" class="control-group" style="display:none;">
+        <label>融化進度：<span class="highlight"><span id="meltVal">0</span>%</span></label>
         <input type="range" id="meltSlider" min="0" max="100" step="1" value="0">
       </div>
 
-      <div class="control-group" id="ctrlBoat1" style="display:none;">
+      <div id="ctrlBoat1" class="control-group" style="display:none;">
         <label>貨物位置：</label>
         <select id="cargoSelect">
           <option value="boat">裝在船上</option>
           <option value="water">丟入水中 (沉底)</option>
         </select>
       </div>
-      <div class="control-group" id="ctrlBoat2" style="display:none;">
+      <div id="ctrlBoat2" class="control-group" style="display:none;">
         <label>航行水域：</label>
         <select id="waterSelect">
           <option value="1.0">一般河水 (密度 1.0)</option>
@@ -67,37 +68,28 @@
 
   <script>
     let currentMode = 0;
-
-    function setup() {
-      createCanvas(700, 450);
-      changeMode(); // 初始化介面
-    }
+    function setup() { createCanvas(700, 480); changeMode(); }
 
     function changeMode() {
       currentMode = parseInt(document.getElementById('modeSelect').value);
-      
-      // 隱藏所有控制項
       let ctrls = ['ctrlLower', 'ctrlObjD', 'ctrlLiqD', 'ctrlMelt', 'ctrlBoat1', 'ctrlBoat2'];
       ctrls.forEach(id => document.getElementById(id).style.display = 'none');
-      
-      // 根據情境開啟對應控制項
+      let liqLabel = document.getElementById('liqDLabel');
+      let liqSlider = document.getElementById('liqDSlider');
+      liqSlider.min = 0.8; liqSlider.max = 1.5; liqSlider.step = 0.1;
+      liqLabel.innerText = '液體密度：';
+
       if (currentMode === 0 || currentMode === 1) {
         document.getElementById('ctrlLower').style.display = 'flex';
         document.getElementById('ctrlLiqD').style.display = 'flex';
-        document.getElementById('liqDSlider').min = 0.8;
-        document.getElementById('liqDSlider').max = 1.5;
-        document.getElementById('liqDSlider').step = 0.1;
       } else if (currentMode === 2) {
         document.getElementById('ctrlObjD').style.display = 'flex';
         document.getElementById('ctrlLiqD').style.display = 'flex';
       } else if (currentMode === 3) {
         document.getElementById('ctrlMelt').style.display = 'flex';
         document.getElementById('ctrlLiqD').style.display = 'flex';
-        // 冰塊情境特殊設定
-        document.getElementById('liqDLabel').innerHTML = '液體種類：';
-        document.getElementById('liqDSlider').min = 1.0;
-        document.getElementById('liqDSlider').max = 1.2; // 只開放水跟食鹽水
-        document.getElementById('liqDSlider').value = 1.0;
+        liqLabel.innerHTML = '液體種類：';
+        liqSlider.min = 1.0; liqSlider.max = 1.2; liqSlider.step = 0.2;
       } else if (currentMode === 4) {
         document.getElementById('ctrlBoat1').style.display = 'flex';
         document.getElementById('ctrlBoat2').style.display = 'flex';
@@ -106,11 +98,8 @@
 
     function draw() {
       background(245, 250, 255);
-      
-      // 讀取共用參數
       let dLiq = parseFloat(document.getElementById('liqDSlider').value);
       if (document.getElementById('liqDVal')) document.getElementById('liqDVal').innerText = dLiq.toFixed(1);
-
       if (currentMode === 0) drawMode0(dLiq);
       else if (currentMode === 1) drawMode1(dLiq);
       else if (currentMode === 2) drawMode2(dLiq);
@@ -118,309 +107,123 @@
       else if (currentMode === 4) drawMode4();
     }
 
-    // ==========================================
-    // 情境 1：彈簧秤與視重
-    // ==========================================
+    // 1. 彈簧秤與視重 (修正文字與密度同步)
     function drawMode0(dLiq) {
       let lowerPercent = parseInt(document.getElementById('lowerSlider').value);
-      
-      let objW = 100; // 物重 100gw
-      let objV = 40;  // 體積 40cm3
-      let waterY = 250;
-      
-      // 計算位置
-      let startY = 120;
-      let endY = 320;
-      let currentY = map(lowerPercent, 0, 100, startY, endY);
-      
-      // 計算沒入體積
-      let subV = 0;
-      let objBottom = currentY + 20;
-      let objTop = currentY - 20;
-      
+      let objW = 100, objV = 40, waterY = 250;
+      let currentY = map(lowerPercent, 0, 100, 120, 320);
+      let subV = 0, objBottom = currentY + 20, objTop = currentY - 20;
       if (objBottom > waterY) {
-        if (objTop >= waterY) subV = objV; // 完全沒入
-        else subV = objV * ((objBottom - waterY) / 40); // 部分沒入
+        if (objTop >= waterY) subV = objV;
+        else subV = objV * ((objBottom - waterY) / 40);
       }
-      
-      let B = subV * dLiq; // 浮力
-      let W_prime = objW - B; // 視重
-
-      // 畫水槽與水
-      fill(135, 206, 235, 150); stroke(50); strokeWeight(2);
-      rect(250, waterY, 200, 150);
-      
-      // 畫彈簧秤
-      fill(200); rect(330, currentY - 100, 40, 60);
-      fill(0); textSize(16); textAlign(CENTER); text(`${W_prime.toFixed(0)} gw`, 350, currentY - 65);
-      stroke(100); line(350, currentY - 40, 350, currentY - 20); // 吊線
-
-      // 畫物體
-      fill(150); noStroke(); rect(330, currentY - 20, 40, 40);
-
-      // 畫力圖箭頭
+      let B = subV * dLiq; 
+      let W_prime = objW - B; 
+      fill(135, 206, 235, 150); stroke(50); strokeWeight(2); rect(250, waterY, 200, 150);
+      fill(240); stroke(100); rect(330, currentY - 100, 40, 60);
+      fill(0); noStroke(); textAlign(CENTER); textSize(14); text(`視重`, 350, currentY - 85);
+      textSize(16); textStyle(BOLD); text(`${W_prime.toFixed(1)}`, 350, currentY - 65); textStyle(NORMAL);
+      stroke(100); line(350, currentY - 40, 350, currentY - 20);
+      fill(150); stroke(50); strokeWeight(1); rect(330, currentY - 20, 40, 40);
       strokeWeight(3);
-      // 重力 (向下)
-      stroke(220, 30, 30); fill(220, 30, 30); drawArrow(380, currentY, 380, currentY + 50, 8);
-      // 浮力 (向上)
-      if (B > 0) { stroke(41, 128, 185); fill(41, 128, 185); drawArrow(320, currentY, 320, currentY - (B/2), 8); }
-      // 拉力 (向上)
-      stroke(39, 174, 96); fill(39, 174, 96); drawArrow(380, currentY, 380, currentY - (W_prime/2), 8);
-
-      // 數據面板
-      fill(0); noStroke(); textAlign(LEFT); textSize(18);
-      text("【力平衡】 視重(拉力) + 浮力 = 物重", 30, 50);
-      fill(39, 174, 96); text(`視重 W' = ${W_prime.toFixed(1)} gw`, 30, 80);
-      fill(41, 128, 185); text(`浮力 B = ${B.toFixed(1)} gw`, 30, 110);
-      fill(220, 30, 30); text(`物重 W = ${objW.toFixed(1)} gw`, 30, 140);
-      fill(100); textSize(14); text(`沒入體積 = ${subV.toFixed(1)} cm³`, 30, 170);
+      stroke(220, 30, 30); fill(220, 30, 30); drawArrow(380, currentY, 380, currentY + 50, 8); // W
+      if (B > 0) { stroke(41, 128, 185); fill(41, 128, 185); drawArrow(320, currentY, 320, currentY - map(B, 0, 100, 0, 80), 8); } // B
+      stroke(39, 174, 96); fill(39, 174, 96); drawArrow(380, currentY, 380, currentY - map(W_prime, 0, 100, 0, 80), 8); // F
+      fill(0); noStroke(); textAlign(LEFT); textSize(18); text("【力平衡】 視重(拉力) + 浮力 = 物重", 30, 50);
+      fill(39, 174, 96); text(`▶ 視重 W' = ${W_prime.toFixed(1)} gw`, 30, 85);
+      fill(41, 128, 185); text(`▶ 浮力 B = V_沒 × d_液 = ${B.toFixed(1)} gw`, 30, 120);
+      fill(220, 30, 30); text(`▶ 物重 W = ${objW.toFixed(1)} gw`, 30, 155);
+      fill(100); textSize(14); text(`目前液體密度 d = ${dLiq.toFixed(2)} g/cm³`, 30, 190);
     }
 
-    // ==========================================
-    // 情境 2：阿基米德原理 (溢水杯)
-    // ==========================================
+    // 2. 阿基米德原理
     function drawMode1(dLiq) {
       let lowerPercent = parseInt(document.getElementById('lowerSlider').value);
-      let objV = 50; 
-      let waterY = 200;
-      let currentY = map(lowerPercent, 0, 100, 100, 300);
-      
-      let subV = 0;
-      let objBottom = currentY + 25;
-      let objTop = currentY - 25;
-      if (objBottom > waterY) {
-        if (objTop >= waterY) subV = objV; 
-        else subV = objV * ((objBottom - waterY) / 50); 
-      }
-      
-      let B = subV * dLiq; 
-      let overflowWeight = subV * dLiq; // 排開液體重
-
-      // 畫溢水杯
-      fill(135, 206, 235, 150); stroke(50); strokeWeight(2);
-      rect(150, waterY, 150, 150); // 主杯
-      line(300, 220, 340, 250); line(300, 240, 330, 260); // 溢水管
-
-      // 畫小燒杯與電子秤
-      fill(200); rect(330, 330, 120, 20); // 秤盤
-      fill(0); textAlign(CENTER); textSize(16); text(`${overflowWeight.toFixed(1)} gw`, 390, 345);
-      rect(340, 260, 100, 70); // 小燒杯外框
-      fill(135, 206, 235, 200); noStroke();
-      let waterH = map(subV, 0, objV, 0, 60);
-      rect(342, 330 - waterH, 96, waterH); // 溢出的水
-
-      // 動態水流
-      if (lowerPercent > 0 && lowerPercent < 100 && subV > 0 && subV < objV) {
-        stroke(135, 206, 235); strokeWeight(4);
-        line(335, 255, 380, 330 - waterH);
-      }
-
-      // 畫物體
+      let objV = 50, waterY = 200, currentY = map(lowerPercent, 0, 100, 100, 300);
+      let subV = 0, objBottom = currentY + 25, objTop = currentY - 25;
+      if (objBottom > waterY) { if (objTop >= waterY) subV = objV; else subV = objV * ((objBottom - waterY) / 50); }
+      let B = subV * dLiq; let overflowWeight = subV * dLiq;
+      fill(135, 206, 235, 150); stroke(50); strokeWeight(2); rect(150, waterY, 150, 150);
+      line(300, 220, 340, 250); line(300, 240, 330, 260);
+      fill(200); rect(330, 330, 120, 20); fill(0); textAlign(CENTER); textSize(16); text(`${overflowWeight.toFixed(1)} gw`, 390, 345);
+      rect(340, 260, 100, 70); fill(135, 206, 235, 200); noStroke(); let waterH = map(subV, 0, objV, 0, 60); rect(342, 330 - waterH, 96, waterH);
+      if (lowerPercent > 0 && lowerPercent < 100 && subV > 0 && subV < objV) { stroke(135, 206, 235); strokeWeight(4); line(335, 255, 380, 330 - waterH); }
       fill(150); stroke(50); strokeWeight(1); rect(200, currentY - 25, 50, 50);
-
-      // 數據
-      fill(0); noStroke(); textAlign(LEFT); textSize(18);
-      text("【阿基米德原理】", 30, 40);
-      fill(41, 128, 185); text(`物體所受浮力 = ${B.toFixed(1)} gw`, 30, 70);
-      fill(39, 174, 96); text(`排開液體重量 = ${overflowWeight.toFixed(1)} gw`, 30, 100);
-      fill(220, 30, 30); textSize(24);
-      if (subV > 0) text("浮力 = 排開的液體重！", 250, 80);
+      fill(0); noStroke(); textAlign(LEFT); textSize(18); text("【阿基米德原理】 浮力 = 排開液重", 30, 40);
+      fill(41, 128, 185); text(`浮力 B = ${B.toFixed(1)} gw`, 30, 70);
+      fill(39, 174, 96); text(`排開液體重 = ${overflowWeight.toFixed(1)} gw`, 30, 100);
     }
 
-    // ==========================================
-    // 情境 3：物體浮沉與密度
-    // ==========================================
+    // 3. 物體浮沉與密度關係
     function drawMode2(dLiq) {
       let dObj = parseFloat(document.getElementById('objDSlider').value);
       document.getElementById('objDVal').innerText = dObj.toFixed(1);
-      
-      let waterY = 150;
-      let objV = 100;
-      let objW = objV * dObj;
-      let side = 60; // 邊長
-      
-      let objY, B, N = 0, stateTxt = "";
-
-      if (dObj < dLiq) {
-        // 浮體
-        let subRatio = dObj / dLiq;
-        let subH = side * subRatio;
-        objY = waterY - (side - subH); // 露出水面
-        B = objW; // 浮力=物重
-        stateTxt = "【浮體】 物體密度 < 液體密度";
-      } else if (dObj === dLiq) {
-        // 懸浮
-        objY = waterY + 60; // 停在水中
-        B = objW;
-        stateTxt = "【懸浮】 物體密度 = 液體密度";
-      } else {
-        // 沉體
-        objY = 350 - side; // 沉底
-        B = objV * dLiq; // 浮力=排開液體重
-        N = objW - B; // 底部支撐力
-        stateTxt = "【沉體】 物體密度 > 液體密度";
-      }
-
-      // 畫水槽
-      fill(135, 206, 235, 150); stroke(50); strokeWeight(2);
-      rect(200, waterY, 300, 200);
-
-      // 畫物體
+      let waterY = 150, objV = 100, objW = objV * dObj, side = 60, objY, B, N = 0, stateTxt = "";
+      if (dObj < dLiq) { let subH = side * (dObj / dLiq); objY = waterY - (side - subH); B = objW; stateTxt = "【浮體】 物密度 < 液密度"; }
+      else if (dObj === dLiq) { objY = waterY + 60; B = objW; stateTxt = "【懸浮】 物密度 = 液密度"; }
+      else { objY = 350 - side; B = objV * dLiq; N = objW - B; stateTxt = "【沉體】 物密度 > 液密度"; }
+      fill(135, 206, 235, 150); stroke(50); strokeWeight(2); rect(200, waterY, 300, 200);
       fill(243, 156, 18); stroke(50); rect(320, objY, side, side);
-
-      // 畫力圖
-      strokeWeight(3);
-      stroke(220, 30, 30); fill(220, 30, 30); drawArrow(390, objY+side/2, 390, objY+side/2 + 50, 8); // 重力
-      stroke(41, 128, 185); fill(41, 128, 185); drawArrow(310, objY+side/2, 310, objY+side/2 - (B/objW)*50, 8); // 浮力
-      if (N > 0) {
-        stroke(142, 68, 173); fill(142, 68, 173); drawArrow(350, objY+side, 350, objY+side - (N/objW)*50, 8); // 正向力
-      }
-
-      // 數據
-      fill(0); noStroke(); textAlign(LEFT); textSize(18);
-      text(stateTxt, 30, 40);
-      text(`物體重 W = ${objW.toFixed(0)} gw`, 30, 70);
-      text(`受浮力 B = ${B.toFixed(0)} gw`, 30, 100);
-      if (N>0) { fill(142, 68, 173); text(`底部支撐力 N = ${N.toFixed(0)} gw`, 30, 130); }
-      
-      if (dObj < dLiq) {
-        fill(220, 30, 30);
-        text(`沒入比例 = 密度比 = ${(dObj/dLiq * 100).toFixed(0)}%`, 30, 130);
-      }
+      strokeWeight(3); stroke(220, 30, 30); fill(220, 30, 30); drawArrow(390, objY+side/2, 390, objY+side/2 + 50, 8);
+      stroke(41, 128, 185); fill(41, 128, 185); drawArrow(310, objY+side/2, 310, objY+side/2 - 50, 8);
+      if (N > 0) { stroke(142, 68, 173); fill(142, 68, 173); drawArrow(350, objY+side, 350, objY+side - (N/objW)*50, 8); }
+      fill(0); noStroke(); textAlign(LEFT); textSize(18); text(stateTxt, 30, 40);
+      text(`物重 W = ${objW.toFixed(0)} gw`, 30, 70); text(`受浮力 B = ${B.toFixed(0)} gw`, 30, 100);
+      if (N>0) { fill(142, 68, 173); text(`支撐力 N = ${N.toFixed(0)} gw`, 30, 130); }
     }
 
-    // ==========================================
-    // 情境 4：冰塊融化 (素養題)
-    // ==========================================
+    // 4. 冰塊融化 (視覺高度放大版)
     function drawMode3(dLiq) {
-      let melt = parseInt(document.getElementById('meltSlider').value) / 100;
-      document.getElementById('meltVal').innerText = (melt*100).toFixed(0);
-      document.getElementById('liqDLabel').innerText = dLiq === 1.0 ? '液體：純水 (d=1.0)' : '液體：食鹽水 (d=1.2)';
-
-      let baseWaterY = 250;
-      let iceMass = 100; // 冰塊質量
-      let tankArea = 200; 
-
-      // 1. 融化前，冰塊提供的排開體積
-      let vSub_ice = (iceMass * (1 - melt)) / dLiq; 
-      // 2. 融化後，冰變成水的體積 (d=1.0)
-      let vWater_added = (iceMass * melt) / 1.0;
-      
-      // 總增加體積與水位變化
-      let totalAddedV = vSub_ice + vWater_added;
-      let initialAddedV = iceMass / dLiq; // melt=0 時
-      let deltaV = totalAddedV - initialAddedV;
-      let waterY = baseWaterY - (deltaV / tankArea) * 100; // Y座標越小越高
-
-      // 畫水槽與液體
-      fill(dLiq===1.0 ? color(135, 206, 235, 150) : color(100, 200, 180, 150)); 
-      stroke(50); strokeWeight(2);
-      rect(250, waterY, 200, 350 - waterY);
-      line(250, 100, 250, 350); line(450, 100, 450, 350); line(250, 350, 450, 350);
-
-      // 畫基準線 (紅色虛線)
-      stroke(220, 30, 30); strokeWeight(2); drawingContext.setLineDash([5, 5]);
-      line(230, baseWaterY, 470, baseWaterY);
-      drawingContext.setLineDash([]);
-      noStroke(); fill(220, 30, 30); textSize(14); text("融化前水位基準線", 480, baseWaterY + 5);
-
-      // 畫冰塊
+      let meltPercent = parseInt(document.getElementById('meltSlider').value);
+      document.getElementById('meltVal').innerText = meltPercent;
+      let melt = meltPercent / 100;
+      let baseWaterY = 240, iceMass = 120, beakerWidth = 250, visualZoom = 50;
+      let theory_delta_h = (( (iceMass*(1-melt))/dLiq + (iceMass*melt)/1.0 ) - (iceMass/dLiq)) / beakerWidth;
+      let currentWaterY = baseWaterY - (theory_delta_h * visualZoom);
+      fill(255); stroke(100); strokeWeight(3); rect(200, 80, beakerWidth, 350, 0, 0, 15, 15);
+      fill(dLiq === 1.0 ? color(135, 206, 235, 150) : color(100, 220, 200, 150)); noStroke();
+      rect(203, currentWaterY, beakerWidth - 6, 430 - currentWaterY, 0, 0, 15, 15);
+      drawWaterGauge(450, baseWaterY, theory_delta_h, visualZoom);
       if (melt < 1) {
-        let iceSide = map(melt, 0, 1, 60, 0); // 邊長隨融化變小
-        let iceSubRatio = 0.9 / dLiq;
-        let iceY = waterY - iceSide * (1 - iceSubRatio);
-        fill(200, 240, 255, 200); stroke(100); strokeWeight(1);
-        rect(350 - iceSide/2, iceY, iceSide, iceSide, 5);
+        fill(220, 245, 255, 200); stroke(150); strokeWeight(1);
+        let iceSide = map(1 - melt, 0, 1, 0, 80);
+        let subRatio = 0.92 / dLiq; let iceSubH = iceSide * subRatio;
+        rect(325 - iceSide/2, currentWaterY - (iceSide - iceSubH), iceSide, iceSide, 8);
       }
-
-      // 解說文字
       fill(0); noStroke(); textAlign(LEFT); textSize(18);
-      if (dLiq === 1.0) {
-        text("【純水中融化】", 30, 40);
-        fill(39, 174, 96); text("結論：水位保持不變！", 30, 70);
-        fill(100); textSize(14); text("冰融化成水後，體積剛好等於原本排開的體積。", 30, 95);
-      } else {
-        text("【食鹽水中融化】", 30, 40);
-        fill(220, 30, 30); text("結論：水位竟然上升了！", 30, 70);
-        fill(100); textSize(14); text("冰在食鹽水中排開的體積較小，\n融化成純水後體積較大，因此溢出基準線。", 30, 100);
-      }
+      if (dLiq === 1.0) { fill(39, 174, 96); text("【結果】 水位保持不變！", 30, 40); }
+      else { fill(231, 76, 60); text("【結果】 水位明顯上升了！", 30, 40); }
     }
 
-    // ==========================================
-    // 情境 5：貨船與吃水線 (含河水與海水)
-    // ==========================================
+    function drawWaterGauge(x, baseY, deltaH, zoom) {
+      let gaugeH = 100, zoomY = baseY - (deltaH * zoom);
+      stroke(150); fill(240); rect(x, baseY - gaugeH/2 - 10, 25, gaugeH + 20);
+      stroke(231, 76, 60); strokeWeight(2); drawingContext.setLineDash([5, 3]);
+      line(180, baseY, x + 25, baseY); drawingContext.setLineDash([]);
+      fill(231, 76, 60); noStroke(); triangle(x+25, baseY, x+35, baseY-5, x+35, baseY+5);
+      stroke(255, 180, 0); strokeWeight(3); line(x - 5, zoomY, x + 30, zoomY);
+      fill(255, 180, 0); noStroke(); triangle(x-5, zoomY, x-15, zoomY-5, x-15, zoomY+5);
+    }
+
+    // 5. 貨船與吃水線
     function drawMode4() {
       let cargoLoc = document.getElementById('cargoSelect').value;
       let dWater = parseFloat(document.getElementById('waterSelect').value);
-      
-      let boatMass = 100;
-      let cargoMass = 60;
-      let cargoVol = 15; // 鐵塊密度大約 4
-      let tankArea = 300;
-      let boatArea = 120; // 船的底面積
-      
-      let displacedV, boatDraft;
-
-      if (cargoLoc === 'boat') {
-        // 貨在船上：總重 = 船+貨
-        let totalMass = boatMass + cargoMass;
-        displacedV = totalMass / dWater; // B = W
-        boatDraft = displacedV / boatArea; // 船吃水深度
-      } else {
-        // 貨在水底：船只載自己，貨沉底
-        let boatDisplaced = boatMass / dWater;
-        displacedV = boatDisplaced + cargoVol; // 總排開 = 船排開 + 鐵塊體積
-        boatDraft = boatDisplaced / boatArea;
-      }
-
-      // 計算水位 (加上放大倍率讓視覺明顯)
-      let baseWaterY = 300;
-      let waterY = baseWaterY - (displacedV / tankArea) * 150; 
-      let boatY = waterY - 40 + (boatDraft * 30); // 船身位置
-
-      // 畫水槽與水 (海水偏深藍)
-      fill(dWater === 1.0 ? color(135, 206, 235, 150) : color(30, 144, 255, 150));
-      stroke(50); strokeWeight(2);
-      rect(150, waterY, 400, 400 - waterY);
-      line(150, 100, 150, 400); line(550, 100, 550, 400); line(150, 400, 550, 400);
-
-      // 畫總水位紅線
-      stroke(220, 30, 30); strokeWeight(2); line(130, waterY, 150, waterY);
-      noStroke(); fill(220, 30, 30); textSize(14); textAlign(RIGHT); text("總水位", 125, waterY + 5);
-
-      // 畫船
-      fill(139, 69, 19); stroke(50); strokeWeight(2);
-      quad(350 - 80, boatY, 350 + 80, boatY, 350 + 60, boatY + 40, 350 - 60, boatY + 40);
-      
-      // 畫吃水線 (黃色)
-      stroke(255, 204, 0); strokeWeight(3); drawingContext.setLineDash([5, 5]);
-      line(350 - 70, waterY, 350 + 70, waterY);
-      drawingContext.setLineDash([]);
-      noStroke(); fill(255, 150, 0); textAlign(LEFT); text("吃水線", 350 + 80, waterY + 5);
-
-      // 畫貨物 (鐵塊)
-      fill(100); stroke(0); strokeWeight(1);
-      if (cargoLoc === 'boat') {
-        rect(350 - 15, boatY - 30, 30, 30); // 在船上
-      } else {
-        rect(350 + 100, 400 - 30, 30, 30); // 沉水底
-      }
-
-      // 解說文字
-      fill(0); noStroke(); textAlign(LEFT); textSize(18);
-      if (cargoLoc === 'boat') {
-        text("【貨物在船上】", 30, 40);
-        text("貨物視同船的一部分，", 30, 70);
-        text("排開了與自身「重量」相等的水。", 30, 95);
-      } else {
-        text("【貨物丟入水中】", 30, 40);
-        fill(220, 30, 30); text("總水位下降了！", 30, 70);
-        fill(100); textSize(14); text("鐵塊沉底，只排開與自身「體積」相等的水，\n排開量變小，所以水位下降。", 30, 95);
-      }
-      
-      // 河水變海水的提示
-      fill(41, 128, 185); textSize(16);
-      if (dWater === 1.03) text("🌊 駛入海水：密度變大，吃水線變淺 (船上浮)", 200, 40);
+      let displacedV, boatDraft, boatMass = 100, cargoMass = 60, cargoVol = 15, tankArea = 300, boatArea = 120;
+      if (cargoLoc === 'boat') { displacedV = (boatMass + cargoMass) / dWater; boatDraft = displacedV / boatArea; }
+      else { displacedV = (boatMass / dWater) + cargoVol; boatDraft = (boatMass / dWater) / boatArea; }
+      let waterY = 300 - (displacedV / tankArea) * 150;
+      let boatY = waterY - 40 + (boatDraft * 30);
+      fill(dWater === 1.0 ? color(135, 206, 235, 150) : color(30, 144, 255, 150)); stroke(50); strokeWeight(2);
+      rect(150, waterY, 400, 400 - waterY); line(150, 400, 550, 400);
+      stroke(220, 30, 30); line(130, waterY, 150, waterY);
+      fill(139, 69, 19); stroke(50); quad(350-80, boatY, 350+80, boatY, 350+60, boatY+40, 350-60, boatY+40);
+      stroke(255, 204, 0); drawingContext.setLineDash([5, 5]); line(350-70, waterY, 350+70, waterY); drawingContext.setLineDash([]);
+      fill(100); noStroke();
+      if (cargoLoc === 'boat') { rect(350 - 15, boatY - 30, 30, 30); }
+      else { rect(350 + 100, 400 - 30, 30, 30); }
+      fill(0); textAlign(LEFT); textSize(18); text(cargoLoc==='boat'?"貨載船上 (B=W)":"貨沉水底 (B=Vd)", 30, 40);
+      if (dWater > 1.0) { fill(41, 128, 185); text("🌊 進入海水：浮力不變，吃水變淺", 30, 70); }
     }
 
     function drawArrow(x1, y1, x2, y2, sz) {
