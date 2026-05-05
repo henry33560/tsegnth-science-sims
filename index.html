@@ -56,7 +56,7 @@
                     <div class="menu-btn" onclick="toggleSubMenu('grade8-down')">📂 八下：力與壓力 ▾</div>
                     <ul id="grade8-down" class="submenu">
                         <li><a onclick="loadSim('pressure')">1. 靜止液體壓力</a></li>
-                        <li><a onclick="loadSim('buoyancy')">2. 浮力原理 (建置中)</a></li>
+                        <li><a onclick="loadSim('atm_pressure')">2. 大氣壓力 (新)</a></li> <li><a onclick="loadSim('buoyancy')">3. 浮力原理 (建置中)</a></li>
                     </ul>
                 </li>
             </ul>
@@ -112,10 +112,14 @@
 
             frame.style.display = 'block';
 
-            if (unit === 'pressure') {
+           if (unit === 'pressure') {
                 title.innerText = '靜止液體壓力與深度的關係';
-                desc.innerText = '【操作說明】請用滑鼠拖曳水中的探測器，觀察壓力箭頭與深度的變化。(公式: P = h × d)';
-                frame.src = './pressure.html';
+                desc.innerText = '【操作說明】點擊探測器後，使用鍵盤方向鍵平滑移動。(公式: P = h × d)';
+                frame.src = './pressure.html?v=5'; // 順便更新液體壓力的快取
+            } else if (unit === 'atm_pressure') {
+                title.innerText = '大氣壓力：托里切利與馬德堡半球';
+                desc.innerText = '【操作說明】觀察傾斜對水銀柱垂直高度的影響，並挑戰拉開馬德堡半球！';
+                frame.src = './atm_pressure.html?v=1'; // 指向您剛剛建立的新檔案
             } else if (unit === 'wave') {
                 title.innerText = '波的傳播與介質';
                 desc.innerText = '觀察橫波與縱波中，介質粒子的運動情形。';
