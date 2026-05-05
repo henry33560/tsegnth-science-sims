@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>靜止液體壓力模擬</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <style>
+    body { display: flex; flex-direction: column; align-items: center; font-family: "微軟正黑體", sans-serif; margin: 0; padding: 10px; background-color: #fff; }
+    .controls { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; width: 90%; max-width: 500px; display: flex; justify-content: space-between; }
+    label { font-weight: bold; color: #2c3e50; }
+  </style>
+</head>
+<body>
+
+  <div class="controls">
+    <div>
+      <label>液體密度 (d) = <span id="densityVal">1.0</span> g/cm³</label><br>
+      <input type="range" id="densitySlider" min="0.5" max="2.0" step="0.1" value="1.0">
+    </div>
+  </div>
+
+  <script>
+    let sensorX, sensorY; // 探測器座標
+    let dragging = false; // 是否正在拖曳
+    let waterTop = 50;    // 水面高度
+    let waterBottom = 350; // 水槽底部
+    let waterLeft = 50;   // 水槽左側
+    let waterRight = 450; // 水槽右側
+
+    function setup() {
+      createCanvas(500, 400);
+      sensorX = width / 2; // 初始位置在中間
+      sensorY = 150;
+    }
+
+    function draw() {
+      background(255);
+
+      // 取得滑桿數值
+      let d = document.getElementById('densitySlider').value;
+      document.getElementById('densityVal').innerText = d;
+
+      // 1. 畫水槽與液體
+      // 根據密度改變液體顏色 (密度越小偏黃如油，越大偏藍如鹽水)
+      let r = map(d, 0.5, 2.0, 250, 100);
+      let g = map(d, 0.5, 2.0, 230, 150);
+      let b = map(d, 0.5, 2.0, 150, 255);
+      fill(r, g, b, 150);
+      stroke(50);
+      strokeWeight(3);
+      rect(waterLeft, waterTop, waterRight - waterLeft, waterBottom - waterTop);
+
+      // 限制探測器只能在水槽內移動
+      sensorX = constrain(sensorX, waterLeft + 20, waterRight - 20);
+      sensorY = constrain(sensorY, waterTop, waterBottom - 20);
+
+      // 2. 計算深度 (h) 與壓力 (P = h * d)
+      // 假設畫布上每 10 個像素代表 1 cm
+      let depth = (sensorY - waterTop) / 10; 
+      let pressure = depth * d;
+
+      // 畫深度輔助線
+      stroke(150);
+      strokeWeight(1);
+      drawingContext.setLineDash([5, 5]); // 虛線
+      line(waterLeft, waterTop, sensorX, waterTop); // 水平輔助線
+      line(sensorX, waterTop, sensorX, sensorY);    // 垂直深度線
+      drawingContext.setLineDash([]); // 恢復實線
+
+      // 3. 畫探測器 (紅色小球)
+      fill(255, 50, 50);
+      noStroke();
+      circle(sensorX, sensorY, 30);
+
+      // 4. 畫四周的壓力箭頭
+      drawPressureArrows(sensorX, sensorY, pressure);
+
+      // 5. 顯示數據文字
+      fill(0);
+      textSize(18);
+      textAlign(LEFT);
+      text(`深度 (h) = ${depth.toFixed(1)} cm`, 20, 30);
+      text(`壓力 (P) = h × d = ${pressure.toFixed(1)} gw/cm²`, 250, 30);
+    }
+
+    // 負責畫壓力箭頭的函數
+    function drawPressureArrows(x, y, p) {
+      let arrowLen = p * 1.5; // 壓力越大，箭頭越長
+      stroke(200, 0, 0);
+      strokeWeight(3);
+      fill(200, 0, 0);
+      
+      // 畫上下左右四個箭頭，全部指向中心探測器
+      drawArrow(x, y - 20 - arrowLen, x, y - 15); // 上往下
+      drawArrow(x, y + 20 + arrowLen, x, y + 15); // 下往上
+      drawArrow(x - 20 - arrowLen, y, x - 15, y); // 左往右
+      drawArrow(x + 20 + arrowLen, y, x + 15, y); // 右往左
+    }
+
+    // 畫單一箭頭的工具函數
+    function drawArrow(x1, y1, x2, y2) {
+      line(x1, y1, x2, y2);
+      push();
+      translate(x2, y2);
+      let a = atan2(y1 - y2, x1 - x2);
+      rotate(a);
+      line(0, 0, 8, -4);
+      line(0, 0, 8, 4);
+      pop();
+    }
+
+    // --- 滑鼠互動事件 ---
+    function mousePressed() {
+      // 判斷滑鼠是否點擊到探測器
+      if (dist(mouseX, mouseY, sensorX, sensorY) < 20) {
+        dragging = true;
+      }
+    }
+    function mouseDragged() {
+      if (dragging) {
+        sensorX = mouseX;
+        sensorY = mouseY;
+      }
+    }
+    function mouseReleased() {
+      dragging = false;
+    }
+  </script>
+</body>
+</html>
