@@ -122,4 +122,117 @@
       pop(); // 恢復直立座標
 
       // 畫液體色塊 (因為已經被剪裁，所以頂部絕對是水平切齊的！)
-      fill(isWater ? color(135, 206, 235) : color(180,
+      fill(isWater ? color(135, 206, 235) : color(180, 180, 180));
+      noStroke();
+      // 從水槽底 (Y=30) 往上畫到目標高度 (Y = -currentH_px)，寬度畫超大確保填滿
+      rect(-tubeLen_px, 30, tubeLen_px * 2, -currentH_px - 30);
+      
+      drawingContext.restore(); // 取消剪裁
+      // =========================================================
+
+      // 畫玻璃管外框 (蓋在液體外面)
+      push();
+      rotate(angle);
+      noFill(); stroke(50); strokeWeight(3);
+      rect(-tubeW/2, 30, tubeW, -tubeLen_px - 30);
+      
+      // 畫托里切利真空標示 (自動置中於空餘部分)
+      if (currentH_px < tubeVerticalH && !isWater) {
+        fill(50); noStroke(); textAlign(CENTER); textSize(14);
+        let liquidSlantH = currentH_px / cos(angle);
+        let vacuumY = (-liquidSlantH - tubeLen_px) / 2;
+        text("托里切利\n真空", 0, vacuumY + 5);
+      }
+      pop(); // 結束旋轉
+      pop(); // 結束 translate
+
+      // 3. 標示線與公式
+      // 底部液面水平線
+      stroke(220, 30, 30); strokeWeight(2); drawingContext.setLineDash([5, 5]);
+      line(100, basinY, 500, basinY); 
+      
+      if (isWater) {
+        fill(220, 30, 30); noStroke(); textAlign(CENTER); textSize(18);
+        text("⚠️ 水柱垂直高度需 10.33 公尺，管子太短會直接滿管沖頂！", 300, 80);
+      } else {
+        // 頂部液面水平線 (完美對齊)
+        let topY = basinY - currentH_px;
+        line(150, topY, 450, topY); 
+        drawingContext.setLineDash([]);
+        
+        // 標示垂直高度 h
+        drawDimension(250, basinY, 250, topY, `垂直高度\nh = ${(currentH_px/pxPerCm).toFixed(1)} cm`);
+        
+        // 公式
+        fill(0); noStroke(); textAlign(LEFT); textSize(16);
+        text(`外界大氣壓力 = 內部液柱壓力\nP = h × d = ${(currentH_px/pxPerCm).toFixed(1)} × 13.6 ≈ ${(atm*1033.6).toFixed(0)} gw/cm²`, 20, 30);
+      }
+      drawingContext.setLineDash([]);
+    }
+
+    function drawMagdeburg() {
+      let r = parseFloat(document.getElementById('rSlider').value);
+      let pInt = parseFloat(document.getElementById('vacSlider').value);
+      let pull = parseFloat(document.getElementById('pullSlider').value);
+      document.getElementById('rVal').innerText = r;
+      document.getElementById('vacVal').innerText = pInt.toFixed(1);
+      document.getElementById('pullVal').innerText = pull;
+
+      let deltaP = (1.0 - pInt) * 1.0336; // kgw/cm²
+      let area = PI * r * r; 
+      let fAtm = deltaP * area; // 總壓力 kgw
+      let isSplit = pull > fAtm;
+      let gap = isSplit ? map(pull - fAtm, 0, 1000, 10, 100) : 0;
+
+      let cx = 300, cy = 260;
+      let vR = r * 3;
+
+      stroke(120, 80, 30); strokeWeight(4);
+      line(cx - vR - gap, cy, cx - vR - gap - 120, cy);
+      line(cx + vR + gap, cy, cx + vR + gap + 120, cy);
+      
+      noStroke(); fill(190, 150, 70); 
+      arc(cx - gap, cy, vR*2, vR*2, 90, 270, CHORD);
+      arc(cx + gap, cy, vR*2, vR*2, 270, 90, CHORD);
+      
+      stroke(220, 30, 30); fill(220, 30, 30); strokeWeight(2);
+      for(let a=0; a<360; a+=45) {
+        let x = cos(a), y = sin(a);
+        let os = x < 0 ? -gap : gap;
+        drawArrow(cx + x*(vR+40) + os, cy + y*(vR+40), cx + x*vR + os, cy + y*vR, 7);
+      }
+
+      fill(0); noStroke(); textAlign(LEFT); textSize(15);
+      text(`截面積 A = πr² ≈ ${area.toFixed(0)} cm²`, 20, 30);
+      text(`大氣總壓力 F = ΔP × A ≈ ${fAtm.toFixed(0)} kgw`, 20, 55);
+      let horses = (fAtm / 80).toFixed(1); 
+      fill(100); text(`(相當於兩側各需約 ${horses} 匹強壯的馬)`, 20, 80);
+
+      textAlign(CENTER); textSize(22);
+      if (deltaP === 0) {
+        fill(100); text("內外氣壓平衡，球體會自然分開", cx, 460);
+      } else if (isSplit) {
+        fill(39, 174, 96); text(`✅ 成功拉開！(拉力 ${pull} ≥ 壓力 ${fAtm.toFixed(0)})`, cx, 460);
+      } else {
+        fill(192, 57, 43); text(`❌ 拉不開！(拉力 ${pull} < 壓力 ${fAtm.toFixed(0)})`, cx, 460);
+      }
+    }
+
+    function drawDimension(x1, y1, x2, y2, txt) {
+      stroke(0); strokeWeight(1);
+      line(x1, y1, x2, y2);
+      line(x1-5, y1, x1+5, y1); line(x2-5, y2, x2+5, y2);
+      noStroke(); fill(0); textAlign(CENTER);
+      text(txt, (x1+x2)/2 - 50, (y1+y2)/2);
+    }
+
+    function drawArrow(x1, y1, x2, y2, sz) {
+      line(x1, y1, x2, y2);
+      let a = atan2(y1-y2, x1-x2);
+      push(); translate(x2, y2); rotate(a);
+      line(0, 0, sz, -sz/2); line(0, 0, sz, sz/2);
+      pop();
+    }
+  </script>
+</body>
+</html>
