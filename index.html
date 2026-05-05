@@ -117,10 +117,14 @@
                 title.innerText = '靜止液體壓力與深度的關係';
                 desc.innerText = '【操作說明】點擊探測器後，使用鍵盤方向鍵平滑移動。(公式: P = h × d)';
                 frame.src = './pressure.html?v=5'; // 順便更新液體壓力的快取
-            } else if (unit === 'atm_pressure') {
+           } else if (unit === 'atm_pressure') {
                 title.innerText = '大氣壓力：托里切利與馬德堡半球';
                 desc.innerText = '【操作說明】觀察傾斜對水銀柱垂直高度的影響，並挑戰拉開馬德堡半球！';
-                frame.src = './atm_pressure.html?v=1'; // 指向您剛剛建立的新檔案
+                frame.src = './atm_pressure.html?v=' + Date.now(); 
+            } else if (unit === 'buoyancy') {
+                title.innerText = '浮力綜合實驗室';
+                desc.innerText = '【操作說明】包含阿基米德原理、冰塊融化迷思、以及貨船吃水線等五大情境！';
+                frame.src = './buoyancy.html?v=' + Date.now(); // 確保讀取最新版
             } else if (unit === 'wave') {
                 title.innerText = '波的傳播與介質';
                 desc.innerText = '觀察橫波與縱波中，介質粒子的運動情形。';
