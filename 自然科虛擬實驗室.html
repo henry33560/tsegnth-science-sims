@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自然科虛擬實驗室</title>
+    <style>
+        /* 這裡是 CSS 區塊：負責美化網頁排版 */
+        body { font-family: "微軟正黑體", sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f4f7f6; }
+        header { background-color: #2c3e50; color: white; padding: 15px 20px; text-align: center; letter-spacing: 2px; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        
+        /* 左側選單設計 */
+        .sidebar { width: 220px; background-color: #ffffff; padding: 20px; overflow-y: auto; border-right: 1px solid #ddd; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
+        .sidebar h3 { color: #16a085; margin-top: 15px; margin-bottom: 5px; border-bottom: 2px solid #16a085; padding-bottom: 5px; }
+        .sidebar ul { list-style-type: none; padding: 0; margin: 0; }
+        .sidebar li { margin-bottom: 8px; }
+        .sidebar a { text-decoration: none; color: #34495e; display: block; padding: 8px; border-radius: 5px; transition: 0.3s; font-size: 15px; cursor: pointer; }
+        .sidebar a:hover { background-color: #e8f8f5; color: #16a085; font-weight: bold; }
+        
+        /* 右側主要內容區 */
+        .content { flex: 1; padding: 25px; display: flex; flex-direction: column; }
+        #sim-title { color: #2c3e50; margin-top: 0; }
+        .simulation-container { flex: 1; border: 2px dashed #bdc3c7; border-radius: 10px; display: flex; justify-content: center; align-items: center; background-color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;}
+        
+        /* 用來嵌入動畫的 iframe */
+        iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🔬 自然科互動虛擬實驗室</h1>
+    </header>
+
+    <div class="container">
+        <nav class="sidebar">
+            <h3>國中理化</h3>
+            <ul>
+                <li><a onclick="loadSim('pressure')">八下：靜止液體壓力</a></li>
+                <li><a onclick="loadSim('wave')">八上：波的傳播</a></li>
+            </ul>
+            
+            <h3>高中物理</h3>
+            <ul>
+                <li><a onclick="loadSim('projectile')">高二：平拋運動</a></li>
+            </ul>
+
+            <h3>高中地科</h3>
+            <ul>
+                <li><a onclick="loadSim('astro')">高一：天球與星空</a></li>
+            </ul>
+        </nav>
+
+        <main class="content">
+            <h2 id="sim-title">歡迎來到虛擬實驗室</h2>
+            <p id="sim-desc">請從左側選單選擇一個單元來進行互動模擬。</p>
+            
+            <div class="simulation-container">
+                <iframe id="sim-frame" src="" style="display: none;"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 這裡是 JavaScript 區塊：負責控制點擊選單後的畫面切換
+        function loadSim(unit) {
+            const title = document.getElementById('sim-title');
+            const desc = document.getElementById('sim-desc');
+            const frame = document.getElementById('sim-frame');
+
+            frame.style.display = 'block'; // 顯示動畫視窗
+
+            if (unit === 'pressure') {
+                title.innerText = '靜止液體壓力與深度的關係';
+                desc.innerText = '【操作說明】請用滑鼠拖曳水中的探測器，觀察壓力箭頭與深度的變化。(公式: P = h × d)';
+                // 未來這裡可以換成您用 p5.js 或 GeoGebra 做好的網址
+                frame.src = 'https://phetsims.colorado.edu/sims/html/under-pressure/latest/under-pressure_zh_TW.html'; 
+            } else if (unit === 'wave') {
+                title.innerText = '波的傳播與介質';
+                desc.innerText = '觀察橫波與縱波中，介質粒子的運動情形。';
+                frame.src = 'https://phetsims.colorado.edu/sims/html/wave-on-a-string/latest/wave-on-a-string_zh_TW.html';
+            } else {
+                title.innerText = '建置中...';
+                desc.innerText = '老師正在努力撰寫程式碼中，敬請期待！';
+                frame.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
