@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>大氣壓力實驗室</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <style>
+    body { display: flex; flex-direction: column; align-items: center; font-family: "微軟正黑體", sans-serif; margin: 0; padding: 10px; background-color: #f4f7f6; }
+    .controls { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; width: 95%; max-width: 650px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+    .row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .control-group { display: flex; flex-direction: column; gap: 5px; background: #f8f9fa; padding: 10px; border-radius: 5px; flex: 1; min-width: 150px;}
+    label { font-weight: bold; color: #2c3e50; font-size: 14px; }
+    select, input[type="range"] { cursor: pointer; padding: 3px; }
+  </style>
+</head>
+<body>
+
+  <div class="controls">
+    <div class="row">
+      <div class="control-group">
+        <label>教學情境切換：</label>
+        <select id="modeSelect" onchange="changeMode()">
+          <option value="0">1. 托里切利實驗 (Torricelli)</option>
+          <option value="1">2. 馬德堡半球實驗 (Magdeburg)</option>
+        </select>
+      </div>
+
+      <div class="control-group" id="torricelliControl1">
+        <label>外界大氣壓力：<span id="atmVal">1.0</span> atm</label>
+        <input type="range" id="atmSlider" min="0.5" max="1.5" step="0.1" value="1.0">
+      </div>
+      <div class="control-group" id="torricelliControl2">
+        <label>管子傾斜角度：<span id="angleVal">0</span> 度</label>
+        <input type="range" id="angleSlider" min="0" max="60" step="5" value="0">
+      </div>
+      <div class="control-group" id="torricelliControl3">
+        <label>替換實驗液體：</label>
+        <select id="liquidSelect">
+          <option value="13.6">水銀 (密度 13.6)</option>
+          <option value="1.0">水 (密度 1.0)</option>
+        </select>
+      </div>
+
+      <div class="control-group" id="magdeburgControl1" style="display:none;">
+        <label>半球半徑 (r) = <span id="rVal">20</span> cm</label>
+        <input type="range" id="rSlider" min="10" max="40" step="2" value="20">
+      </div>
+      <div class="control-group" id="magdeburgControl2" style="display:none;">
+        <label>內部剩餘氣壓 = <span id="vacVal">0.0</span> atm</label>
+        <input type="range" id="vacSlider" min="0.0" max="1.0" step="0.1" value="0.0">
+      </div>
+      <div class="control-group" id="magdeburgControl3" style="display:none;">
+        <label>向外拉力 (F) = <span id="pullVal">0</span> kgw</label>
+        <input type="range" id="pullSlider" min="0" max="3500" step="50" value="0">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 0;
+
+    function setup() {
+      createCanvas(600, 480);
+      angleMode(DEGREES);
+    }
+
+    function changeMode() {
+      currentMode = parseInt(document.getElementById('modeSelect').value);
+      
+      let tCtrl = currentMode === 0 ? 'flex' : 'none';
+      let mCtrl = currentMode === 1 ? 'flex' : 'none';
+      
+      document.getElementById('torricelliControl1').style.display = tCtrl;
+      document.getElementById('torricelliControl2').style.display = tCtrl;
+      document.getElementById('torricelliControl3').style.display = tCtrl;
+      
+      document.getElementById('magdeburgControl1').style.display = mCtrl;
+      document.getElementById('magdeburgControl2').style.display = mCtrl;
+      document.getElementById('magdeburgControl3').style.display = mCtrl;
+    }
+
+    function draw() {
+      background(250);
+      if (currentMode === 0) drawTorricelli();
+      else if (currentMode === 1) drawMagdeburg();
+    }
+
+    // ==========================================
+    // 實驗一：托里切利實驗
+    // ==========================================
+    function drawTorricelli() {
+      let atm = parseFloat(document.getElementById('atmSlider').value);
+      let angle = parseFloat(document.getElementById('angleSlider').value);
+      let d = parseFloat(document.getElementById('liquidSelect').value);
+      
+      document.getElementById('atmVal').innerText = atm.toFixed(1);
+      document.getElementById('angleVal').innerText = angle;
+
+      let isWater = (d === 1.0);
+      let h_cm = (atm * 1033.6) / d; // 理論垂直高度 (cm)
+
+      // 畫布參數
+      let basinY = 400; 
+      let originX = 300; 
+      let pxPerCm = 3.5; // 比例尺：1 cm = 3.5 px (適合水銀)
+      
+      let h_px = h_cm * pxPerCm;
+      
+      // 1. 畫水槽
+      fill(isWater ? color(135, 206, 235, 200) : color(180, 180, 180, 200));
+      stroke(50); strokeWeight(2);
+      rect(150, basinY, 300, 70); 
+
+      // 2. 畫玻璃管與液柱
+      push();
+      translate(originX, basinY + 20); // 以管口沒入水中的位置為原點
+      rotate(angle); // 傾斜管子
+
+      // 畫管子外框 (固定長度)
+      stroke(50); strokeWeight(3); fill(255, 255, 255, 100);
+      let tubeLen = 350; 
+      rect(-15, -tubeLen, 30, tubeLen); // 往上長
+      
+      // 畫管內液體
+      noStroke();
+      fill(isWater ? color(135, 206, 235) : color(180, 180, 180));
+      
+      let liquidLen = h_px / cos(angle); // 根據傾斜角度計算沿著管子的長度
+      
+      if (isWater) {
+        // 水的柱高會破表，填滿整個管子
+        rect(-13, -tubeLen + 2, 26, tubeLen);
+      } else {
+        if (liquidLen > tubeLen) liquidLen = tubeLen; // 防呆，超過管長就填滿
+        rect(-13, -liquidLen, 26, liquidLen);
+        
+        // 標示真空區
+        if (liquidLen < tubeLen) {
+          fill(50); textSize(14); textAlign(CENTER);
+          push(); rotate(-angle); text("托里切利\n真空", 0, -tubeLen + 30); pop();
+        }
+      }
+      pop();
+
+      // 3. 畫輔助線與高度標示
+      stroke(220, 30, 30); strokeWeight(2); drawingContext.setLineDash([5, 5]);
+      line(100, basinY, 500, basinY); // 液面基準線
+      
+      let topY = basinY - h_px; // 垂直最高點的 Y 座標
+      
+      if (isWater) {
+        fill(220, 30, 30); noStroke(); textSize(20); textAlign(CENTER);
+        text("⚠️ 水柱高度高達 10.3 公尺，已衝破天花板！", 300, 100);
+        text("P = h × d = 1033.6 cm × 1 g/cm³", 300, 130);
+      } else {
+        // 水銀的垂直輔助線
+        line(originX, basinY, originX, topY); 
+        line(200, topY, 400, topY); // 頂部水平線
+        drawingContext.setLineDash([]);
+        
+        // 畫雙向箭頭標示 h
+        stroke(0); strokeWeight(1); fill(0);
+        line(originX - 30, basinY, originX - 30, topY);
+        triangle(originX - 30, topY, originX - 35, topY + 10, originX - 25, topY + 10);
+        triangle(originX - 30, basinY, originX - 35, basinY - 10, originX - 25, basinY - 10);
+        
+        noStroke(); textSize(16); textAlign(RIGHT);
+        text(`垂直高度\nh = ${h_cm.toFixed(1)} cm`, originX - 40, basinY - h_px/2);
+        
+        // 公式
+        textAlign(LEFT);
+        text(`外界大氣壓力 = 內部液柱壓力\nP = h × d = ${h_cm.toFixed(1)} × 13.6 ≈ ${(atm*1033.6).toFixed(0)} gw/cm²`, 20, 30);
+      }
+      drawingContext.setLineDash([]);
+    }
+
+    // ==========================================
+    // 實驗二：馬德堡半球實驗
+    // ==========================================
+    function drawMagdeburg() {
+      let r = parseFloat(document.getElementById('rSlider').value);
+      let pInt = parseFloat(document.getElementById('vacSlider').value);
+      let pull = parseFloat(document.getElementById('pullSlider').value);
+      
+      document.getElementById('rVal').innerText = r;
+      document.getElementById('vacVal').innerText = pInt.toFixed(1);
+      document.getElementById('pullVal').innerText = pull;
+
+      // 計算壓力差與所需拉力
+      let pExt = 1.0; // 外界大氣壓 1 atm
+      let deltaP_atm = pExt - pInt;
+      // 1 atm = 1.0336 kgw/cm²
+      let deltaP_kgw = deltaP_atm * 1.0336; 
+      let area = PI * r * r; // 截面積 (cm²)
+      let requiredForce = deltaP_kgw * area; // kgw
+
+      // 判斷是否拉開
+      let isSplit = pull > requiredForce;
+      let offset = isSplit ? 40 : 0; // 拉開時的動畫位移
+
+      // 繪圖參數
+      let cx = 300;
+      let cy = 250;
+      let visualR = r * 3; // 視覺放大的半徑
+
+      // 1. 畫兩側的拉力線與人/馬 (用方塊示意)
+      stroke(100); strokeWeight(4);
+      line(cx - visualR - offset, cy, cx - visualR - offset - 100, cy); // 左繩
+      line(cx + visualR + offset, cy, cx + visualR + offset + 100, cy); // 右繩
+
+      // 2. 畫左右半球
+      noStroke(); fill(180, 140, 50); // 銅色
+      arc(cx - offset, cy, visualR*2, visualR*2, 90, 270, CHORD); // 左半球
+      arc(cx + offset, cy, visualR*2, visualR*2, -90, 90, CHORD); // 右半球
+      
+      // 中間接縫邊框
+      stroke(50); strokeWeight(2); noFill();
+      line(cx - offset, cy - visualR, cx - offset, cy + visualR);
+      line(cx + offset, cy - visualR, cx + offset, cy + visualR);
+
+      // 3. 畫外部大氣壓力箭頭 (紅色，向內)
+      stroke(220, 30, 30); fill(220, 30, 30); strokeWeight(3);
+      for(let a = 0; a < 360; a += 45) {
+        let startX = cx + cos(a) * (visualR + 30);
+        let startY = cy + sin(a) * (visualR + 30);
+        let endX = cx + cos(a) * visualR;
+        let endY = cy + sin(a) * visualR;
+        // 如果拉開了，箭頭也要跟著偏移
+        if(cos(a) < 0) { startX -= offset; endX -= offset; }
+        else { startX += offset; endX += offset; }
+        drawArrow(startX, startY, endX, endY, 8);
+      }
+
+      // 4. 畫向外拉力箭頭 (藍色，向外)
+      if (pull > 0) {
+        stroke(41, 128, 185); fill(41, 128, 185); strokeWeight(map(pull, 0, 3500, 3, 10));
+        drawArrow(cx - visualR - offset - 20, cy + 30, cx - visualR - offset - 100, cy + 30, 10);
+        drawArrow(cx + visualR + offset + 20, cy + 30, cx + visualR + offset + 100, cy + 30, 10);
+      }
+
+      // 5. 文字數據面板
+      fill(0); noStroke(); textSize(16); textAlign(LEFT);
+      text(`壓力差 ΔP = 1.0 - ${pInt.toFixed(1)} = ${deltaP_atm.toFixed(1)} atm  (約 ${(deltaP_atm * 1.0336).toFixed(2)} kgw/cm²)`, 20, 30);
+      text(`有效截面積 A = π × r² = 3.14 × ${r}² ≈ ${area.toFixed(0)} cm²`, 20, 55);
+      
+      textSize(18);
+      text(`大氣總壓力 F = ΔP × A ≈ ${requiredForce.toFixed(0)} kgw`, 20, 85);
+
+      // 狀態判定文字 (置中於下方)
+      textAlign(CENTER); textSize(24);
+      if (deltaP_atm === 0) {
+        fill(100); text("內外氣壓平衡，球體會自然分開", cx, 430);
+      } else if (isSplit) {
+        fill(39, 174, 96); text(`✅ 成功拉開！(拉力 ${pull} ≥ 大氣壓力 ${requiredForce.toFixed(0)})`, cx, 430);
+      } else {
+        fill(192, 57, 43); text(`❌ 拉不開！(拉力 ${pull} < 大氣壓力 ${requiredForce.toFixed(0)})`, cx, 430);
+      }
+    }
+
+    function drawArrow(x1, y1, x2, y2, headSize) {
+      line(x1, y1, x2, y2); push(); translate(x2, y2);
+      let a = atan2(y1 - y2, x1 - x2); rotate(a);
+      line(0, 0, headSize, -headSize/2); line(0, 0, headSize, headSize/2); pop();
+    }
+  </script>
+</body>
+</html>
