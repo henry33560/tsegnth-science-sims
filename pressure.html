@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>大氣壓力實驗室 V2</title>
+  <title>大氣壓力實驗室 </title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <style>
     body { display: flex; flex-direction: column; align-items: center; font-family: "微軟正黑體", sans-serif; margin: 0; padding: 10px; background-color: #f4f7f6; }
@@ -18,7 +18,7 @@
   <div class="controls">
     <div class="row">
       <div class="control-group">
-        <label>教學情境：</label>
+        <label>教學情境切換：</label>
         <select id="modeSelect" onchange="changeMode()">
           <option value="0">1. 托里切利實驗 (Torricelli)</option>
           <option value="1">2. 馬德堡半球實驗 (Magdeburg)</option>
@@ -26,18 +26,18 @@
       </div>
 
       <div class="control-group" id="tCtrl1">
-        <label>大氣壓力：<span id="atmVal">1.0</span> atm</label>
+        <label>外界大氣壓力：<span id="atmVal">1.0</span> atm</label>
         <input type="range" id="atmSlider" min="0.5" max="1.5" step="0.1" value="1.0">
       </div>
       <div class="control-group" id="tCtrl2">
-        <label>傾斜角度：<span id="angleVal">0</span> 度</label>
+        <label>管子傾斜角度：<span id="angleVal">0</span> 度</label>
         <input type="range" id="angleSlider" min="0" max="75" step="1" value="0">
       </div>
       <div class="control-group" id="tCtrl3">
-        <label>實驗液體：</label>
+        <label>替換實驗液體：</label>
         <select id="liquidSelect">
-          <option value="13.6">水銀 (d=13.6)</option>
-          <option value="1.0">水 (d=1.0)</option>
+          <option value="13.6">水銀 (密度 13.6)</option>
+          <option value="1.0">水 (密度 1.0)</option>
         </select>
       </div>
 
@@ -93,157 +93,33 @@
       let h_cm = (atm * 1033.6) / d; // 垂直高度 cm
       let pxPerCm = 3.5; 
       let h_px = h_cm * pxPerCm;
-      let basinY = 420;
+      
+      let basinY = 420; 
+      let pivotY = basinY; // 以水槽液面為絕對座標原點 (解決虛線誤差)
       let tubeLen_px = 350; // 玻璃管總長
       let tubeW = 26;
 
-      // 1. 畫水槽
+      // 1. 畫水槽 (半透明)
       fill(isWater ? color(135, 206, 235, 150) : color(180, 180, 180, 150));
       stroke(50); strokeWeight(2);
       rect(100, basinY, 400, 60);
 
       // 2. 托里切利實驗核心邏輯
       push();
-      translate(300, basinY + 10);
-      
-      // 畫玻璃管外框
-      push();
-      rotate(angle);
-      stroke(50); strokeWeight(3); fill(255, 255, 255, 50);
-      rect(-tubeW/2, -tubeLen_px, tubeW, tubeLen_px);
-      pop();
+      translate(300, pivotY);
 
-      // 計算水銀高度
       let tubeVerticalH = tubeLen_px * cos(angle); // 管子頂端的垂直高度
-      let currentH_px = min(h_px, tubeVerticalH); // 實際水銀垂直高度不能超過管子頂端
-      
-      // 畫管內液體 (使用剪裁或多邊形確保表面水平)
-      fill(isWater ? color(135, 206, 235) : color(180, 180, 180));
-      noStroke();
-      
-      // 計算四個頂點，使頂面水平
-      // 利用三角函數計算出管內液體沿著斜邊的兩側長度
-      let sideL = currentH_px / cos(angle);
-      let offset = (tubeW/2) * tan(angle);
-      
-      beginShape();
-      vertex(-tubeW/2 * cos(angle), (tubeW/2)*sin(angle)); // 管口左
-      vertex(tubeW/2 * cos(angle), (-tubeW/2)*sin(angle)); // 管口右
-      
-      // 旋轉後的頂部水平座標計算
+      let currentH_px = min(h_px, tubeVerticalH); // 實際液體高度不會超過管子頂端
+
+      // === 終極解法：使用 Clip 剪裁路徑畫出絕對水平的液面 ===
+      drawingContext.save(); // 儲存畫布狀態
       push();
       rotate(angle);
-      // 這裡簡單化處理：畫一個足以覆蓋管徑的梯形，並在上方截斷
-      pop();
-      
-      // 修正後的繪圖：利用 rotate 繪製內部，但表面用遮罩或幾何修正
-      push();
-      rotate(angle);
-      // 繪製液體
-      rect(-tubeW/2 + 1, -sideL, tubeW - 2, sideL);
-      
-      // 如果不是滿管，畫一個遮罩把頂部修平
-      if (currentH_px < tubeVerticalH) {
-        fill(250); // 與背景同色
-        push();
-        rotate(-angle);
-        // 在垂直高度 h 處畫一個橫塊遮掉斜面
-        rect(-100, -currentH_px - 100, 200, 100);
-        pop();
-      }
-      pop();
-      
-      // 畫托里切利真空標示
-      if (currentH_px < tubeVerticalH && !isWater) {
-        fill(50); textAlign(CENTER); textSize(14);
-        let vacuumY = - (tubeVerticalH + currentH_px) / 2;
-        text("托里切利\n真空", 0, vacuumY);
-      }
-      pop();
+      drawingContext.beginPath();
+      // 設定剪裁區域為玻璃管內部 (往下延伸 30px 進入水槽)
+      drawingContext.rect(-tubeW/2 + 1.5, 30, tubeW - 3, -tubeLen_px - 30);
+      drawingContext.clip(); // 啟動剪裁
+      pop(); // 恢復直立座標
 
-      // 3. 標示線與公式
-      stroke(220, 30, 30); strokeWeight(2); drawingContext.setLineDash([5, 5]);
-      line(100, basinY, 500, basinY); // 液面線
-      
-      if (isWater) {
-        fill(220, 30, 30); noStroke(); textAlign(CENTER);
-        text("⚠️ 水柱垂直高度需 10.33 公尺，管子太短會直接沖頂！", 300, 80);
-      } else {
-        line(150, basinY - currentH_px, 450, basinY - currentH_px); // 高度線
-        drawingContext.setLineDash([]);
-        // 標示垂直高度 h
-        drawDimension(250, basinY, 250, basinY - currentH_px, `h = ${(currentH_px/pxPerCm).toFixed(1)} cm`);
-        
-        fill(0); noStroke(); textAlign(LEFT); textSize(16);
-        text(`大氣壓力 P = h × d = ${(currentH_px/pxPerCm).toFixed(1)} × 13.6 ≈ ${(atm*1033.6).toFixed(0)} gw/cm²`, 20, 30);
-      }
-    }
-
-    function drawMagdeburg() {
-      let r = parseFloat(document.getElementById('rSlider').value);
-      let pInt = parseFloat(document.getElementById('vacSlider').value);
-      let pull = parseFloat(document.getElementById('pullSlider').value);
-      document.getElementById('rVal').innerText = r;
-      document.getElementById('vacVal').innerText = pInt.toFixed(1);
-      document.getElementById('pullVal').innerText = pull;
-
-      let deltaP = (1.0 - pInt) * 1.0336; // kgw/cm²
-      let area = PI * r * r; 
-      let fAtm = deltaP * area; // 總壓力 kgw
-      let isSplit = pull > fAtm;
-      let gap = isSplit ? map(pull - fAtm, 0, 1000, 10, 100) : 0;
-
-      let cx = 300, cy = 260;
-      let vR = r * 3;
-
-      // 繩子與馬匹暗示
-      stroke(120, 80, 30); strokeWeight(4);
-      line(cx - vR - gap, cy, cx - vR - gap - 120, cy);
-      line(cx + vR + gap, cy, cx + vR + gap + 120, cy);
-      
-      // 半球
-      noStroke(); fill(190, 150, 70); 
-      arc(cx - gap, cy, vR*2, vR*2, 90, 270, CHORD);
-      arc(cx + gap, cy, vR*2, vR*2, 270, 90, CHORD);
-      
-      // 壓力箭頭
-      stroke(220, 30, 30); fill(220, 30, 30); strokeWeight(2);
-      for(let a=0; a<360; a+=45) {
-        let x = cos(a), y = sin(a);
-        let os = x < 0 ? -gap : gap;
-        drawArrow(cx + x*(vR+40) + os, cy + y*(vR+40), cx + x*vR + os, cy + y*vR, 7);
-      }
-
-      // 數據顯示
-      fill(0); noStroke(); textAlign(LEFT); textSize(15);
-      text(`截面積 A = πr² ≈ ${area.toFixed(0)} cm²`, 20, 30);
-      text(`大氣總壓力 F = ΔP × A ≈ ${fAtm.toFixed(0)} kgw`, 20, 55);
-      let horses = (fAtm / 80).toFixed(1); // 假設一匹馬拉力 80kgw
-      fill(100); text(`(相當於兩側各需約 ${horses} 匹強壯的馬)`, 20, 80);
-
-      textAlign(CENTER); textSize(22);
-      if (isSplit) {
-        fill(39, 174, 96); text(`✅ 成功拉開！(拉力 ${pull} ≥ 壓力 ${fAtm.toFixed(0)})`, cx, 460);
-      } else {
-        fill(192, 57, 43); text(`❌ 拉不開！(拉力 ${pull} < 壓力 ${fAtm.toFixed(0)})`, cx, 460);
-      }
-    }
-
-    function drawDimension(x1, y1, x2, y2, txt) {
-      stroke(0); strokeWeight(1);
-      line(x1, y1, x2, y2);
-      line(x1-5, y1, x1+5, y1); line(x2-5, y2, x2+5, y2);
-      noStroke(); fill(0); textAlign(CENTER);
-      text(txt, (x1+x2)/2 - 40, (y1+y2)/2);
-    }
-
-    function drawArrow(x1, y1, x2, y2, sz) {
-      line(x1, y1, x2, y2);
-      let a = atan2(y1-y2, x1-x2);
-      push(); translate(x2, y2); rotate(a);
-      line(0, 0, sz, -sz/2); line(0, 0, sz, sz/2);
-      pop();
-    }
-  </script>
-</body>
-</html>
+      // 畫液體色塊 (因為已經被剪裁，所以頂部絕對是水平切齊的！)
+      fill(isWater ? color(135, 206, 235) : color(180,
