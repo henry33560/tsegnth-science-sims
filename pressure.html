@@ -2,128 +2,274 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>靜止液體壓力模擬</title>
+  <title>流體力學綜合模擬</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <style>
-    body { display: flex; flex-direction: column; align-items: center; font-family: "微軟正黑體", sans-serif; margin: 0; padding: 10px; background-color: #fff; }
-    .controls { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; width: 90%; max-width: 500px; display: flex; justify-content: space-between; }
-    label { font-weight: bold; color: #2c3e50; }
+    body { display: flex; flex-direction: column; align-items: center; font-family: "微軟正黑體", sans-serif; margin: 0; padding: 10px; background-color: #f4f7f6; }
+    .controls { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; width: 90%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+    .control-group { display: flex; flex-direction: column; gap: 5px; }
+    label { font-weight: bold; color: #2c3e50; font-size: 14px; }
+    select, input[type="range"] { cursor: pointer; }
   </style>
 </head>
 <body>
 
   <div class="controls">
-    <div>
-      <label>液體密度 (d) = <span id="densityVal">1.0</span> g/cm³</label><br>
+    <div class="control-group">
+      <label>教學情境切換：</label>
+      <select id="modeSelect" onchange="changeMode()">
+        <option value="0">1. 靜止液體壓力 (P = h×d)</option>
+        <option value="1">2. 連通管原理</option>
+        <option value="2">3. 帕斯卡原理 (液壓機)</option>
+      </select>
+    </div>
+
+    <div class="control-group" id="shapeControl">
+      <label>容器形狀：</label>
+      <select id="shapeSelect">
+        <option value="0">一般矩形</option>
+        <option value="1">上寬下窄 (漏斗狀)</option>
+        <option value="2">上窄下寬 (錐瓶狀)</option>
+      </select>
+    </div>
+
+    <div class="control-group" id="densityControl">
+      <label>液體密度 (d) = <span id="densityVal">1.0</span> g/cm³</label>
       <input type="range" id="densitySlider" min="0.5" max="2.0" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group" id="forceControl" style="display:none;">
+      <label>左側下壓力 (F₁) = <span id="forceVal">10</span> kgw</label>
+      <input type="range" id="forceSlider" min="10" max="100" step="5" value="10">
     </div>
   </div>
 
   <script>
-    let sensorX, sensorY; // 探測器座標
-    let dragging = false; // 是否正在拖曳
-    let waterTop = 50;    // 水面高度
-    let waterBottom = 350; // 水槽底部
-    let waterLeft = 50;   // 水槽左側
-    let waterRight = 450; // 水槽右側
+    let currentMode = 0;
+    
+    // 模式0：壓力與深度
+    let sensorX = 300, sensorY = 150;
+    let draggingSensor = false;
+    
+    // 模式1：連通管
+    let waterLevelY = 200;
+    let draggingWater = false;
 
     function setup() {
-      createCanvas(500, 400);
-      sensorX = width / 2; // 初始位置在中間
-      sensorY = 150;
+      createCanvas(600, 450);
+    }
+
+    function changeMode() {
+      currentMode = parseInt(document.getElementById('modeSelect').value);
+      // 根據模式切換顯示的控制介面
+      document.getElementById('shapeControl').style.display = (currentMode === 0) ? 'flex' : 'none';
+      document.getElementById('densityControl').style.display = (currentMode === 2) ? 'none' : 'flex';
+      document.getElementById('forceControl').style.display = (currentMode === 2) ? 'flex' : 'none';
     }
 
     function draw() {
-      background(255);
+      background(250);
 
-      // 取得滑桿數值
-      let d = document.getElementById('densitySlider').value;
-      document.getElementById('densityVal').innerText = d;
+      if (currentMode === 0) drawMode0();
+      else if (currentMode === 1) drawMode1();
+      else if (currentMode === 2) drawMode2();
+    }
 
-      // 1. 畫水槽與液體
-      // 根據密度改變液體顏色 (密度越小偏黃如油，越大偏藍如鹽水)
-      let r = map(d, 0.5, 2.0, 250, 100);
-      let g = map(d, 0.5, 2.0, 230, 150);
-      let b = map(d, 0.5, 2.0, 150, 255);
-      fill(r, g, b, 150);
-      stroke(50);
-      strokeWeight(3);
-      rect(waterLeft, waterTop, waterRight - waterLeft, waterBottom - waterTop);
+    // ==========================================
+    // 情境一：靜止液體壓力與深度、形狀、密度
+    // ==========================================
+    function drawMode0() {
+      let d = parseFloat(document.getElementById('densitySlider').value);
+      document.getElementById('densityVal').innerText = d.toFixed(1);
+      let shapeType = parseInt(document.getElementById('shapeSelect').value);
 
-      // 限制探測器只能在水槽內移動
-      sensorX = constrain(sensorX, waterLeft + 20, waterRight - 20);
-      sensorY = constrain(sensorY, waterTop, waterBottom - 20);
+      let topY = 100, bottomY = 400;
+      let tl, tr, bl, br; // 容器四個頂點的 X 座標
 
-      // 2. 計算深度 (h) 與壓力 (P = h * d)
-      // 假設畫布上每 10 個像素代表 1 cm
-      let depth = (sensorY - waterTop) / 10; 
+      if (shapeType === 0) { tl = 150; tr = 450; bl = 150; br = 450; } // 矩形
+      else if (shapeType === 1) { tl = 50; tr = 550; bl = 200; br = 400; } // 上寬下窄
+      else { tl = 200; tr = 400; bl = 50; br = 550; } // 上窄下寬
+
+      // 畫容器與液體 (顏色隨密度從淺藍到深藍)
+      let rCol = map(d, 0.5, 2.0, 135, 0);
+      let gCol = map(d, 0.5, 2.0, 206, 0);
+      let bCol = map(d, 0.5, 2.0, 250, 139);
+      
+      fill(rCol, gCol, bCol, 180);
+      stroke(50); strokeWeight(3);
+      quad(tl, topY, tr, topY, br, bottomY, bl, bottomY);
+
+      // 動態計算探測器可移動的邊界
+      let minX = map(sensorY, topY, bottomY, tl, bl) + 25;
+      let maxX = map(sensorY, topY, bottomY, tr, br) - 25;
+      sensorY = constrain(sensorY, topY, bottomY - 20);
+      sensorX = constrain(sensorX, minX, maxX);
+
+      let depth = (sensorY - topY) / 10; 
       let pressure = depth * d;
 
-      // 畫深度輔助線
-      stroke(150);
-      strokeWeight(1);
-      drawingContext.setLineDash([5, 5]); // 虛線
-      line(waterLeft, waterTop, sensorX, waterTop); // 水平輔助線
-      line(sensorX, waterTop, sensorX, sensorY);    // 垂直深度線
-      drawingContext.setLineDash([]); // 恢復實線
+      // 深度虛線
+      stroke(150); strokeWeight(1); drawingContext.setLineDash([5, 5]);
+      line(tl, topY, tr, topY); // 水平水面線
+      line(sensorX, topY, sensorX, sensorY); // 深度線
+      drawingContext.setLineDash([]);
 
-      // 3. 畫探測器 (紅色小球)
-      fill(255, 50, 50);
-      noStroke();
-      circle(sensorX, sensorY, 30);
+      // 畫 8 個方向的壓力箭頭 (指向探測器)
+      draw8Arrows(sensorX, sensorY, pressure);
 
-      // 4. 畫四周的壓力箭頭
-      drawPressureArrows(sensorX, sensorY, pressure);
+      // 畫黑色探測器
+      fill(0); noStroke(); circle(sensorX, sensorY, 30);
 
-      // 5. 顯示數據文字
-      fill(0);
-      textSize(18);
-      textAlign(LEFT);
+      // 數據顯示
+      fill(0); textSize(18); textAlign(LEFT);
       text(`深度 (h) = ${depth.toFixed(1)} cm`, 20, 30);
-      text(`壓力 (P) = h × d = ${pressure.toFixed(1)} gw/cm²`, 250, 30);
+      text(`壓力 (P) = ${pressure.toFixed(1)} gw/cm²`, 250, 30);
     }
 
-    // 負責畫壓力箭頭的函數
-    function drawPressureArrows(x, y, p) {
-      let arrowLen = p * 1.5; // 壓力越大，箭頭越長
-      stroke(200, 0, 0);
-      strokeWeight(3);
-      fill(200, 0, 0);
+    function draw8Arrows(x, y, p) {
+      let arrowLen = p * 1.2; 
+      let r = 15; // 探測器半徑
+      stroke(220, 30, 30); strokeWeight(3); fill(220, 30, 30);
       
-      // 畫上下左右四個箭頭，全部指向中心探測器
-      drawArrow(x, y - 20 - arrowLen, x, y - 15); // 上往下
-      drawArrow(x, y + 20 + arrowLen, x, y + 15); // 下往上
-      drawArrow(x - 20 - arrowLen, y, x - 15, y); // 左往右
-      drawArrow(x + 20 + arrowLen, y, x + 15, y); // 右往左
+      for(let i = 0; i < 8; i++) {
+        let angle = i * PI / 4;
+        let startX = x + cos(angle) * (r + arrowLen + 5);
+        let startY = y + sin(angle) * (r + arrowLen + 5);
+        let endX = x + cos(angle) * (r + 2);
+        let endY = y + sin(angle) * (r + 2);
+        
+        // 只有在有壓力時才畫箭頭
+        if (p > 0.5) drawArrow(startX, startY, endX, endY);
+      }
     }
 
-    // 畫單一箭頭的工具函數
+    // ==========================================
+    // 情境二：連通管原理
+    // ==========================================
+    function drawMode1() {
+      let d = parseFloat(document.getElementById('densitySlider').value);
+      document.getElementById('densityVal').innerText = d.toFixed(1);
+      
+      let rCol = map(d, 0.5, 2.0, 135, 0);
+      let gCol = map(d, 0.5, 2.0, 206, 0);
+      let bCol = map(d, 0.5, 2.0, 250, 139);
+
+      waterLevelY = constrain(waterLevelY, 100, 360);
+
+      // 畫液體 (利用 beginShape 畫出底管與三個不同形狀的直管)
+      noStroke(); fill(rCol, gCol, bCol, 180);
+      beginShape();
+      vertex(80, 360); vertex(520, 360); vertex(520, 400); vertex(80, 400); // 底管
+      endShape();
+      
+      // 左管 (一般直管)
+      rect(100, waterLevelY, 40, 360 - waterLevelY);
+      // 中管 (超粗直管)
+      rect(250, waterLevelY, 100, 360 - waterLevelY);
+      // 右管 (傾斜管 - 使用 Quad 逼近水位)
+      let rightOffset = map(waterLevelY, 100, 360, 50, 0); // 隨高度傾斜
+      quad(430 + rightOffset, waterLevelY, 470 + rightOffset, waterLevelY, 470, 360, 430, 360);
+
+      // 畫容器玻璃邊框
+      stroke(50); strokeWeight(3); noFill();
+      line(80, 100, 80, 400); line(80, 400, 520, 400); line(520, 400, 520, 100);
+      // 內部擋板線
+      line(140, 100, 140, 360); line(140, 360, 250, 360);
+      line(350, 100, 350, 360); line(350, 360, 430, 360);
+      line(480, 100, 470, 360); line(420, 100, 430, 360); // 斜管邊框
+
+      // 畫水平基準線 (連通管重點)
+      stroke(220, 30, 30); strokeWeight(2); drawingContext.setLineDash([5, 5]);
+      line(50, waterLevelY, 550, waterLevelY);
+      drawingContext.setLineDash([]);
+
+      // 拖曳提示點
+      fill(220, 30, 30); noStroke();
+      circle(50, waterLevelY, 15);
+      circle(550, waterLevelY, 15);
+
+      fill(0); textSize(18); textAlign(CENTER);
+      text("【操作說明】請用滑鼠上下拖曳紅色虛線，觀察各管水面的高度變化", 300, 40);
+    }
+
+    // ==========================================
+    // 情境三：帕斯卡原理 (液壓機)
+    // ==========================================
+    function drawMode2() {
+      let f1 = parseFloat(document.getElementById('forceSlider').value);
+      document.getElementById('forceVal').innerText = f1;
+      
+      let a1 = 10; // 假設左邊截面積為 10 cm²
+      let a2 = 50; // 假設右邊截面積為 50 cm²
+      let f2 = f1 * (a2 / a1); // 根據 P1 = P2 計算 F2
+
+      // 畫液體
+      noStroke(); fill(135, 206, 235, 180);
+      rect(100, 250, 60, 100); // 左管水
+      rect(100, 350, 350, 50); // 底管水
+      rect(300, 200, 150, 150); // 右管水
+
+      // 畫 U 型玻璃管
+      stroke(50); strokeWeight(3); noFill();
+      line(100, 100, 100, 400); line(100, 400, 450, 400); line(450, 400, 450, 100); // 外框
+      line(160, 100, 160, 350); line(160, 350, 300, 350); line(300, 350, 300, 100); // 內框
+
+      // 畫左右活塞 (灰色)
+      fill(150); noStroke();
+      rect(100, 230, 60, 20); // 左活塞
+      rect(300, 180, 150, 20); // 右活塞
+
+      // 左側施力箭頭 (向下)
+      stroke(220, 30, 30); strokeWeight(4); fill(220, 30, 30);
+      drawArrow(130, 150, 130, 220);
+      noStroke(); textSize(16); textAlign(CENTER);
+      text(`F₁ = ${f1} kgw\n(A₁ = ${a1} cm²)`, 130, 130);
+
+      // 右側支撐力箭頭 (向上) - 箭頭粗細與長度隨 F2 增加
+      let arrowSize = map(f2, 50, 500, 2, 6);
+      stroke(30, 100, 220); strokeWeight(arrowSize); fill(30, 100, 220);
+      drawArrow(375, 120, 375, 50);
+      noStroke(); fill(30, 100, 220);
+      text(`F₂ = ${f2} kgw\n(A₂ = ${a2} cm²)`, 375, 160);
+
+      // 數學公式解說區
+      fill(0); textAlign(LEFT); textSize(18);
+      text("帕斯卡原理：密閉流體中，各處增加的壓力 (P) 必定相等", 60, 40);
+      textSize(20);
+      text(`P = F₁ / A₁ = F₂ / A₂`, 200, 75);
+    }
+
+    // 箭頭繪製通用函數
     function drawArrow(x1, y1, x2, y2) {
       line(x1, y1, x2, y2);
       push();
       translate(x2, y2);
       let a = atan2(y1 - y2, x1 - x2);
       rotate(a);
-      line(0, 0, 8, -4);
-      line(0, 0, 8, 4);
+      line(0, 0, 10, -5);
+      line(0, 0, 10, 5);
       pop();
     }
 
-    // --- 滑鼠互動事件 ---
+    // 滑鼠互動判定
     function mousePressed() {
-      // 判斷滑鼠是否點擊到探測器
-      if (dist(mouseX, mouseY, sensorX, sensorY) < 20) {
-        dragging = true;
+      if (currentMode === 0 && dist(mouseX, mouseY, sensorX, sensorY) < 20) {
+        draggingSensor = true;
+      } else if (currentMode === 1 && abs(mouseY - waterLevelY) < 20) {
+        draggingWater = true;
       }
     }
     function mouseDragged() {
-      if (dragging) {
+      if (currentMode === 0 && draggingSensor) {
         sensorX = mouseX;
         sensorY = mouseY;
+      } else if (currentMode === 1 && draggingWater) {
+        waterLevelY = mouseY;
       }
     }
     function mouseReleased() {
-      dragging = false;
+      draggingSensor = false;
+      draggingWater = false;
     }
   </script>
 </body>
